@@ -91,7 +91,7 @@ DISPLAY=:99 import -window root /tmp/shot.png
 
 `tools/mac-smoke.sh dist/macos-arm64/Convertino.app --gui` runs what CI runs: CLI conversions, CoreGraphics PDF rendering, Vision OCR, the editors' self-test, then the app itself — a pinned flower, `convertino menu` over IPC, and a synthetic drag → Shift → drop on a petal (`tools/mac-drag-test.swift`; the terminal needs Accessibility to post input). Screenshots and the log land in `./mac-smoke/`. `CUTOUT=1` adds Cut out (downloads the model). In CI it also sets a striped wallpaper, runs `install.sh` and the Finder Quick Action through `automator`, and uninstalls again; those steps are skipped on your own Mac. Every CI run uploads the screenshots, plus a zipped `Convertino.app`, as the `macos-arm64` / `macos-x64` artifacts — handy without a Mac.
 
-Two things CI can't show: a real Finder drag with Shift (its synthetic drag starts from a test window), and the glass — GitHub's macOS VMs draw every `NSVisualEffectView` material as the same flat fill, so judge the blur on a real Mac. If you have one, `CONVERTINO_DEBUG=1 ~/Applications/Convertino.app/Contents/MacOS/convertino` logs every Shift / drag / drop step.
+What CI can't show is a real Finder drag with Shift (its synthetic drag starts from a test window). The glass does show: GitHub's macOS images ship with *Reduce transparency* on, which draws every `NSVisualEffectView` flat, so the script switches it off in CI. If you have one, `CONVERTINO_DEBUG=1 ~/Applications/Convertino.app/Contents/MacOS/convertino` logs every Shift / drag / drop step.
 
 ## Style
 

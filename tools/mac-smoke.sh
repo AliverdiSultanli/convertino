@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 # Smoke test for the macOS build (used by CI; works on any Mac):
-#   tools/mac-smoke.sh dist/Convertino.app          command line: conversions, CoreGraphics PDF, Vision OCR
-#   tools/mac-smoke.sh dist/Convertino.app --gui    + the app: pinned flower, "convertino menu" over IPC, the Quick Action
+#   tools/mac-smoke.sh dist/Convertino.app          command line: conversions, CoreGraphics PDF, Vision OCR (CUTOUT=1: Cut out)
+#   tools/mac-smoke.sh dist/Convertino.app --gui    + editors, pinned flower, "convertino menu" over IPC, a synthetic drag + Shift
+#                                                 + drop; in CI also install.sh and the Finder Quick Action
 # Screenshots and the log land in ./mac-smoke/.
 set -euo pipefail
 
@@ -81,10 +82,10 @@ PY
 sips -s format png "$WORK/bg.bmp" --out "$WORK/bg.png" >/dev/null &&
   osascript -e "tell application \"System Events\" to tell every desktop to set picture to \"$WORK/bg.png\"" ||
   echo "::warning::couldn't set the wallpaper"
-sleep 2
-fi
 # GitHub's images ship with Reduce transparency on, which turns every NSVisualEffectView into a flat fill
 defaults write com.apple.universalaccess reduceTransparency -bool false 2>/dev/null || true
+sleep 2
+fi
 echo "reduce transparency: $(defaults read com.apple.universalaccess reduceTransparency 2>/dev/null || echo unset)"
 system_profiler SPDisplaysDataType 2>/dev/null | grep -E "Chipset|Metal|Resolution" || true
 

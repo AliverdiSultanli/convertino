@@ -55,4 +55,9 @@
     <PackageReference Include="Microsoft.ML.OnnxRuntime" Version="1.24.4" />
   </ItemGroup>
 
+  <!-- ONNX Runtime's build targets also copy its Windows DLLs (~14 MB); dead weight in a Mac app -->
+  <Target Name="DropWindowsNatives" AfterTargets="Publish">
+    <Delete Files="$(PublishDir)onnxruntime.dll;$(PublishDir)onnxruntime_providers_shared.dll" />
+  </Target>
+
 </Project>

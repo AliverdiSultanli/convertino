@@ -86,7 +86,7 @@ sudo pacman -S ffmpeg poppler tesseract tesseract-data-eng libreoffice-fresh   #
 
 ### macOS 13 or later (Apple silicon or Intel)
 
-> **Status: new, not yet tried on a real Mac.** Every CI run tests the macOS build on GitHub's macOS runners (macOS 26 on Apple silicon, macOS 15 on Intel): conversions, PDF rendering, OCR, `convertino menu`, the Quick Action, and the gesture itself with synthetic input (press, drag, tap <kbd>Shift</kbd>, drop on a petal → the converted file appears). What hasn't happened yet is a person dragging from Finder on real hardware. If you try it, please [send a macOS report](https://github.com/hasanzadee/convertino/issues/new?template=macos_report.yml) either way.
+> **Status: new, not yet tried on a real Mac.** Every CI run tests the macOS build on GitHub's macOS runners (macOS 26 on Apple silicon, macOS 15 on Intel): conversions, PDF rendering, OCR, Cut out, the editors, the glass, `convertino menu`, the Quick Action, and the gesture itself with synthetic input (press, drag, tap <kbd>Shift</kbd>, drop on a petal → the converted file appears). What hasn't happened yet is a person dragging from Finder on real hardware. If you try it, please [send a macOS report](https://github.com/hasanzadee/convertino/issues/new?template=macos_report.yml) either way.
 
 1. Download **`convertino-macos-arm64.zip`** (Apple silicon: M1 and later) or **`convertino-macos-x64.zip`** (Intel) from the [latest release](https://github.com/hasanzadee/convertino/releases/latest).
 2. Unzip it (double-click it in Finder) and run the installer from Terminal:
