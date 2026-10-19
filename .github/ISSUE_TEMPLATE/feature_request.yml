@@ -1,0 +1,11 @@
+name: Petal idea
+description: Suggest a new conversion, tool or improvement
+labels: [enhancement]
+body:
+  - type: textarea
+    id: idea
+    attributes:
+      label: What should the petal do?
+      description: Which files, what result, where would it sit (Convert or Tools ring)?
+    validations:
+      required: true

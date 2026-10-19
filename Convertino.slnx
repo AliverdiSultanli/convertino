@@ -1,0 +1,8 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/Convertino.Core/Convertino.Core.csproj" />
+    <Project Path="src/Convertino.Linux/Convertino.Linux.csproj" />
+    <Project Path="src/Convertino.Mac/Convertino.Mac.csproj" />
+    <Project Path="src/Convertino.Windows/Convertino.Windows.csproj" />
+  </Folder>
+</Solution>

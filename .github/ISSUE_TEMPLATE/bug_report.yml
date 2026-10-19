@@ -1,0 +1,29 @@
+name: Bug report
+description: Something doesn't work as expected
+labels: [bug]
+body:
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened?
+      description: What did you drag / drop, what did you expect, what happened instead?
+    validations:
+      required: true
+  - type: input
+    id: os
+    attributes:
+      label: OS and desktop
+      placeholder: "Windows 11 24H2 · or · Ubuntu 24.04 GNOME (X11) · or · macOS 15.6 (M2)"
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: Convertino version
+      placeholder: convertino --version
+  - type: textarea
+    id: log
+    attributes:
+      label: Log
+      description: The last lines of %APPDATA%\Convertino\convertino.log, ~/.config/convertino/convertino.log or ~/Library/Application Support/Convertino/convertino.log
+      render: text

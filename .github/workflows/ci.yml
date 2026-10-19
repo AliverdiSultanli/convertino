@@ -1,0 +1,80 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-dotnet@v6
+        with:
+          dotnet-version: 10.0.x
+      - name: Build
+        run: dotnet build src/Convertino.Windows -c Release
+      - name: CLI smoke test
+        shell: pwsh
+        run: |
+          dotnet publish src/Convertino.Windows -c Release -r win-x64 --self-contained -o dist/win-x64 -v q
+          Copy-Item packaging/linux/icons/convertino-256.png smoke.png
+          $p = Start-Process dist/win-x64/Convertino.exe -ArgumentList 'convert','smoke.png','--to','webp' -Wait -PassThru
+          if (-not (Test-Path smoke.webp)) { throw "conversion failed ($($p.ExitCode))" }
+
+  linux:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-dotnet@v6
+        with:
+          dotnet-version: 10.0.x
+      - name: Build
+        run: dotnet build src/Convertino.Linux -c Release
+      - name: CLI smoke test
+        run: |
+          dotnet publish src/Convertino.Linux -c Release -r linux-x64 --self-contained -o dist/linux-x64 -v q
+          cp packaging/linux/icons/convertino-256.png smoke.png
+          ./dist/linux-x64/convertino convert smoke.png --to webp
+          ./dist/linux-x64/convertino run compress smoke.png
+          test -f smoke.webp
+
+  macos:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { runner: macos-latest, arch: arm64 }
+          - { runner: macos-15-intel, arch: x64 }
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-dotnet@v6
+        with:
+          dotnet-version: 10.0.x
+      - name: Build Convertino.app
+        run: |
+          chmod +x packaging/macos/*.sh tools/mac-smoke.sh
+          packaging/macos/build-app.sh ${{ matrix.arch }} dist
+      - name: Cut-out model cache
+        if: matrix.arch == 'arm64'
+        uses: actions/cache@v6
+        with:
+          path: ~/Library/Application Support/Convertino/models
+          key: birefnet-lite-5600024376f5
+      - name: Smoke test
+        env:
+          CUTOUT: ${{ matrix.arch == 'arm64' && '1' || '' }}
+        run: tools/mac-smoke.sh dist/Convertino.app ${{ matrix.arch == 'arm64' && '--gui' || '' }}
+      - name: Zip the app
+        if: always()
+        run: ditto -c -k --keepParent dist/Convertino.app convertino-macos-${{ matrix.arch }}-ci.zip
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: macos-${{ matrix.arch }}
+          path: |
+            mac-smoke/
+            convertino-macos-${{ matrix.arch }}-ci.zip

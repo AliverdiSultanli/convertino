@@ -1,0 +1,36 @@
+name: macOS report
+description: Tried Convertino on a Mac? Tell us how it went — working or not
+labels: [macos]
+body:
+  - type: markdown
+    attributes:
+      value: The macOS build is tested in CI with synthetic input; reports from real Macs are what's missing. Thank you!
+  - type: input
+    id: mac
+    attributes:
+      label: Mac and macOS version
+      placeholder: "MacBook Air M2 · macOS 15.6  ·  or  ·  iMac Intel · macOS 14"
+    validations:
+      required: true
+  - type: dropdown
+    id: gesture
+    attributes:
+      label: Dragging a file in Finder and tapping Shift…
+      options:
+        - opens the flower, and dropping on a petal works
+        - opens the flower, but dropping on a petal does nothing
+        - opens the flower only after allowing Input Monitoring
+        - doesn't open the flower
+    validations:
+      required: true
+  - type: textarea
+    id: notes
+    attributes:
+      label: Anything else
+      description: How the glass looks, the Quick Action, install / Gatekeeper, a petal that failed…
+  - type: textarea
+    id: log
+    attributes:
+      label: Log
+      description: "The last lines of ~/Library/Application Support/Convertino/convertino.log (start Convertino with CONVERTINO_DEBUG=1 ~/Applications/Convertino.app/Contents/MacOS/convertino for gesture details)"
+      render: text

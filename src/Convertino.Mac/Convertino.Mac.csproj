@@ -1,0 +1,58 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <RootNamespace>Convertino</RootNamespace>
+    <AssemblyName>convertino</AssemblyName>
+    <RuntimeIdentifier Condition="'$(RuntimeIdentifier)' == ''">osx-arm64</RuntimeIdentifier>
+    <Product>Convertino</Product>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <InvariantGlobalization>false</InvariantGlobalization>
+    <NoWarn>$(NoWarn);CA1416</NoWarn>
+  </PropertyGroup>
+
+  <!--
+    The shared engine is compiled in rather than referenced, so this app can pick the Magick.NET build per Mac:
+    15.x has Apple-silicon natives only; 14.17 is the last line that still ships macOS x64.
+    Windows and Linux keep referencing Convertino.Core as before.
+  -->
+  <ItemGroup>
+    <Compile Include="..\Convertino.Core\**\*.cs" Exclude="..\Convertino.Core\bin\**;..\Convertino.Core\obj\**" Link="Core\%(RecursiveDir)%(Filename)%(Extension)" />
+    <!-- Avalonia UI shared with the Linux app -->
+    <Compile Include="..\Convertino.Linux\Overlay\FlowerView.cs" Link="Shared\Overlay\FlowerView.cs" />
+    <Compile Include="..\Convertino.Linux\Ui\*.cs" Link="Shared\Ui\%(Filename)%(Extension)" />
+    <Compile Include="..\Convertino.Linux\Editors\*.cs" Link="Shared\Editors\%(Filename)%(Extension)" />
+    <Compile Include="..\Convertino.Linux\Ipc.cs" Link="Shared\Ipc.cs" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Avalonia" Version="12.1.4" />
+    <PackageReference Include="Avalonia.Desktop" Version="12.1.4" />
+    <PackageReference Include="Avalonia.Themes.Fluent" Version="12.1.4" />
+    <PackageReference Include="Avalonia.Fonts.Inter" Version="12.1.4" />
+    <!-- same as Convertino.Core.csproj -->
+    <PackageReference Include="Markdig" Version="1.4.1" />
+    <PackageReference Include="PdfPig" Version="0.1.16" />
+    <PackageReference Include="PDFsharp" Version="6.2.4" />
+    <PackageReference Include="System.Security.Cryptography.Pkcs" Version="10.0.13" />
+  </ItemGroup>
+
+  <PropertyGroup Condition="'$(RuntimeIdentifier)' == 'osx-x64'">
+    <DefineConstants>$(DefineConstants);MAGICK14</DefineConstants>
+  </PropertyGroup>
+
+  <ItemGroup Condition="'$(RuntimeIdentifier)' == 'osx-x64'">
+    <PackageReference Include="Magick.NET-Q8-x64" Version="14.17.2" />
+    <!-- API only: there is no ONNX Runtime native for Intel Macs, so Cut out stays hidden there -->
+    <PackageReference Include="Microsoft.ML.OnnxRuntime.Managed" Version="1.24.4" />
+  </ItemGroup>
+
+  <ItemGroup Condition="'$(RuntimeIdentifier)' != 'osx-x64'">
+    <PackageReference Include="Magick.NET-Q8-arm64" Version="15.0.0" />
+    <PackageReference Include="Microsoft.ML.OnnxRuntime" Version="1.24.4" />
+  </ItemGroup>
+
+</Project>

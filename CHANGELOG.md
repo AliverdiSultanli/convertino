@@ -1,0 +1,16 @@
+# Changelog
+
+## 1.0.0 — 2026-10-19
+
+First public release.
+
+- Drag any file and tap Shift: the radial menu blooms under the cursor (Windows OLE drag & drop, Linux XDND, macOS Finder drops).
+- Convert and Tools rings, flip with Shift; drag captions in Explorer; drops always copy, never move.
+- Images, PDF, Word/Excel/PowerPoint (Microsoft Office or LibreOffice), Markdown, text, video, audio, ZIP, folders.
+- Editors: Crop, Add BG, Annotate, Redact (with automatic text detection), Adjust.
+- Cut out: offline AI background removal (BiRefNet-lite; DirectML GPU on Windows, CPU on Linux and Apple silicon).
+- OCR to clipboard (Windows OCR / Vision / Tesseract), lossless metadata cleaning, smart compression.
+- Double-tap Shift in Explorer and Send to → Convertino (Windows); right-click → Convertino in Nautilus, Nemo, Dolphin, Caja (Linux); Finder Quick Action (macOS).
+- macOS app (13 Ventura or later, Apple silicon and Intel): system blur glass, CoreGraphics PDF rendering, Vision OCR, menu-bar icon, LaunchAgent. Ad-hoc signed, not notarized. **Beta:** the drag + Shift gesture is verified in CI with synthetic input, not yet on real hardware.
+- Command line: `convertino convert | run | actions | menu | model`.
+- Themes: Catppuccin Mocha & Latte, Sunset, Graphite.

@@ -1,0 +1,83 @@
+name: Release
+
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-dotnet@v6
+        with:
+          dotnet-version: 10.0.x
+      - name: Publish
+        shell: pwsh
+        run: |
+          dotnet publish src/Convertino.Windows -c Release -r win-x64 --self-contained -o out/convertino/app
+          Copy-Item packaging/windows/*.ps1 out/convertino/
+          Copy-Item README.md, LICENSE, THIRD-PARTY-NOTICES.md out/convertino/
+          Compress-Archive -Path out/convertino/* -DestinationPath convertino-win-x64.zip
+      - uses: actions/upload-artifact@v7
+        with: { name: windows, path: convertino-win-x64.zip }
+
+  linux:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-dotnet@v6
+        with:
+          dotnet-version: 10.0.x
+      - name: Publish
+        run: |
+          dotnet publish src/Convertino.Linux -c Release -r linux-x64 --self-contained -o out/convertino/app
+          cp -r packaging/linux/install.sh packaging/linux/convertino.desktop packaging/linux/icons README.md LICENSE THIRD-PARTY-NOTICES.md out/convertino/
+          chmod +x out/convertino/install.sh out/convertino/app/convertino
+          tar -C out -czf convertino-linux-x64.tar.gz convertino
+      - uses: actions/upload-artifact@v7
+        with: { name: linux, path: convertino-linux-x64.tar.gz }
+
+  macos:
+    strategy:
+      matrix:
+        include:
+          - { runner: macos-latest, arch: arm64 }
+          - { runner: macos-15-intel, arch: x64 }
+    runs-on: ${{ matrix.runner }}
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-dotnet@v6
+        with:
+          dotnet-version: 10.0.x
+      - name: Publish
+        run: |
+          chmod +x packaging/macos/*.sh
+          out=out/convertino
+          packaging/macos/build-app.sh ${{ matrix.arch }} "$out"
+          cp packaging/macos/install.sh README.md LICENSE THIRD-PARTY-NOTICES.md "$out/"
+          chmod +x "$out/install.sh"
+          ditto -c -k --keepParent "$out" convertino-macos-${{ matrix.arch }}.zip
+      - uses: actions/upload-artifact@v7
+        with:
+          name: macos-${{ matrix.arch }}
+          path: convertino-macos-${{ matrix.arch }}.zip
+
+  publish:
+    needs: [windows, linux, macos]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v8
+        with: { merge-multiple: true }
+      - uses: softprops/action-gh-release@v3
+        with:
+          files: |
+            convertino-win-x64.zip
+            convertino-linux-x64.tar.gz
+            convertino-macos-arm64.zip
+            convertino-macos-x64.zip
+          generate_release_notes: true
