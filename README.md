@@ -61,7 +61,7 @@ Converting a file usually means opening an app, finding *Export…*, picking a f
    powershell -ExecutionPolicy Bypass -File install.ps1
    ```
 
-Convertino installs per-user to `%LOCALAPPDATA%\Programs\Convertino` (no admin rights), adds a Start-menu entry and **Send to → Convertino**, starts in the tray and launches with Windows (toggle it in the tray panel). For video and audio petals install ffmpeg: `winget install Gyan.FFmpeg`.
+Convertino installs per-user to `%LOCALAPPDATA%\Programs\Convertino` (no admin rights), adds a Start-menu entry and **Send to → Convertino**, starts in the tray and launches with Windows (toggle it in the tray panel). Click the tray icon for the panel (theme, options, recent files; closes on Esc or a click outside); right-click it for a quick menu with **Quit Convertino**. For video and audio petals install ffmpeg: `winget install Gyan.FFmpeg`.
 
 ### Linux
 

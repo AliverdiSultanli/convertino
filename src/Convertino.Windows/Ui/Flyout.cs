@@ -17,7 +17,8 @@ public sealed class Flyout : Window
 {
     const double W = 340, Pad = 18;
     readonly TranslateTransform _slide = new();
-    Image _backdrop = new() { Stretch = Stretch.Fill };
+    // a brush, not an Image element: it survives rebuilds and never feeds its bitmap size into the layout
+    readonly ImageBrush _backdrop = new() { Stretch = Stretch.Fill };
     DateTime _hiddenAt;
 
     public Flyout()
@@ -33,6 +34,7 @@ public sealed class Flyout : Window
         UseLayoutRounding = true;
         Title = "Convertino";
         Deactivated += (_, _) => HideAnimated();
+        _hideTimer.Tick += (_, _) => FinishHide();
         KeyDown += (_, e) => { if (e.Key == Key.Escape) HideAnimated(); };
         SourceInitialized += (_, _) => Win32.MakeToolWindow(new WindowInteropHelper(this).Handle, false);
         Theme.Changed += () => { if (IsVisible) Build(); };
@@ -48,7 +50,12 @@ public sealed class Flyout : Window
         new WindowInteropHelper(this).EnsureHandle();
         var hwnd = new WindowInteropHelper(this).Handle;
         // show invisibly first so SizeToContent settles, then park bottom-right above the taskbar
+        _hideTimer.Stop();
+        _hiding = false;
+        BeginAnimation(OpacityProperty, null);
         Opacity = 0;
+        // never taller than the work area: the card's top edge stays on screen, the options scroll instead
+        MaxHeight = work.Height / scale + Pad - 14;
         Win32.SetWindowPos(hwnd, Win32.HWND_TOPMOST, work.Left, work.Top, 0, 0, Win32.SWP_NOSIZE | Win32.SWP_NOACTIVATE);
         Show();
         UpdateLayout();
@@ -58,7 +65,7 @@ public sealed class Flyout : Window
         Win32.SetWindowPos(hwnd, Win32.HWND_TOPMOST, x, y, 0, 0, Win32.SWP_NOSIZE | Win32.SWP_NOACTIVATE);
         int m = (int)(Pad * scale);
         // fully transparent right now, so the capture sees only what's behind us
-        _backdrop.Source = Backdrop.Capture(new RECT { Left = x + m, Top = y + m, Right = x + wPx - m, Bottom = y + hPx - m }, 4, 8, 1.35);
+        _backdrop.ImageSource = Backdrop.Capture(new RECT { Left = x + m, Top = y + m, Right = x + wPx - m, Bottom = y + hPx - m }, 4, 8, 1.35);
         Win32.ForceForeground(hwnd);
         Activate();
         var ease = new CubicEase { EasingMode = EasingMode.EaseOut };
@@ -67,16 +74,36 @@ public sealed class Flyout : Window
     }
 
     bool _hiding;
+    readonly System.Windows.Threading.DispatcherTimer _hideTimer = new() { Interval = TimeSpan.FromMilliseconds(150) };
 
-    void HideAnimated()
+    public void HideAnimated()
     {
         if (!IsVisible || _hiding) return;
         _hiding = true;
         _hiddenAt = DateTime.Now;
-        var fade = new DoubleAnimation(0, TimeSpan.FromMilliseconds(140));
-        fade.Completed += (_, _) => { Hide(); _hiding = false; };
         _slide.BeginAnimation(TranslateTransform.YProperty, new DoubleAnimation(0, 14, TimeSpan.FromMilliseconds(140)));
-        BeginAnimation(OpacityProperty, fade);
+        BeginAnimation(OpacityProperty, new DoubleAnimation(0, TimeSpan.FromMilliseconds(140)));
+        _hideTimer.Start();
+    }
+
+    void FinishHide()
+    {
+        _hideTimer.Stop();
+        Hide();
+        BeginAnimation(OpacityProperty, null);
+        _hiding = false;
+    }
+
+    /// <summary>Close on any click outside the panel or Esc — works even if Windows never gave us focus.</summary>
+    public void Attach(Input.GlobalInput input)
+    {
+        input.MouseDown += p =>
+        {
+            if (!IsVisible || _hiding) return;
+            var h = new WindowInteropHelper(this).Handle;
+            if (h != IntPtr.Zero && Win32.GetWindowRect(h, out var r) && !r.Contains(p)) HideAnimated();
+        };
+        input.Escape += () => { if (IsVisible) HideAnimated(); };
     }
 
     // ---------- content ----------
@@ -91,7 +118,7 @@ public sealed class Flyout : Window
     void Build()
     {
         var s = Settings.Current;
-        var stack = new StackPanel { Margin = new Thickness(18, 16, 18, 14) };
+        var stack = new StackPanel();
 
         // header
         var logo = new Image { Source = new DrawingImage(AppIcon.Drawing(T)), Width = 34, Height = 34 };
@@ -99,12 +126,12 @@ public sealed class Flyout : Window
         title.Children.Add(new TextBlock { Text = "Convertino", FontFamily = Display, FontWeight = FontWeights.SemiBold, FontSize = 17, Foreground = B(T.Text) });
         title.Children.Add(new TextBlock { Text = s.Enabled ? "Drag a file · tap ⇧ Shift" : "Paused", FontFamily = TextF, FontSize = 12, Foreground = B(T.SubText) });
         var header = new DockPanel { LastChildFill = false };
-        var enabled = Switch(s.Enabled, v => { s.Enabled = v; s.Save(); Build(); });
-        DockPanel.SetDock(enabled, Dock.Right);
-        header.Children.Add(enabled);
+        var close = (FrameworkElement)FooterButton("\uE711", "", HideAnimated);
+        close.ToolTip = "Close (Esc)";
+        DockPanel.SetDock(close, Dock.Right);
+        header.Children.Add(close);
         var hl = new StackPanel { Orientation = Orientation.Horizontal, Children = { logo, title } };
         header.Children.Add(hl);
-        stack.Children.Add(header);
 
         // how-to card
         stack.Children.Add(Card(new StackPanel
@@ -129,6 +156,7 @@ public sealed class Flyout : Window
         {
             Children =
             {
+                ToggleRow("Enabled", s.Enabled, v => { s.Enabled = v; s.Save(); Build(); }),
                 ToggleRow("Double-tap Shift in Explorer", s.DoubleShift, v => { s.DoubleShift = v; s.Save(); }),
                 ToggleRow("Notifications", s.Notifications, v => { s.Notifications = v; s.Save(); }),
                 ToggleRow("Start with Windows", s.LaunchAtStartup, v => { s.LaunchAtStartup = v; s.Save(); AutoStart.Apply(v); }),
@@ -151,16 +179,30 @@ public sealed class Flyout : Window
         DockPanel.SetDock(quit, Dock.Right);
         footer.Children.Add(quit);
         footer.Children.Add(FooterButton("", "Log", () => Shell.Open(Paths.LogFile)));
-        stack.Children.Add(footer);
+
+        // header and footer stay put; only the middle scrolls when the screen is short
+        var body = new DockPanel { Margin = new Thickness(18, 16, 18, 14) };
+        DockPanel.SetDock(header, Dock.Top);
+        DockPanel.SetDock(footer, Dock.Bottom);
+        body.Children.Add(header);
+        body.Children.Add(footer);
+        body.Children.Add(new ScrollViewer
+        {
+            Content = stack,
+            VerticalScrollBarVisibility = ScrollBarVisibility.Hidden,
+            HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled,
+            PanningMode = PanningMode.VerticalOnly,
+            Focusable = false,
+        });
 
         var layers = new Grid
         {
             Children =
             {
-                _backdrop,
+                new Rectangle { Fill = _backdrop },
                 new Rectangle { Fill = B(Theme.Solid(T.Tint)) },
                 new Rectangle { Fill = new LinearGradientBrush(A(T.PetalTop, T.PetalTop.A / 255.0 * .7), T.PetalBottom, 90) },
-                stack,
+                body,
             },
         };
         var card = new Border
@@ -336,7 +378,43 @@ public sealed class TrayIcon : IDisposable
             Text = "Convertino — drag a file, tap Shift",
             Visible = true,
         };
-        _icon.MouseUp += (_, e) => Application.Current.Dispatcher.BeginInvoke(() => _flyout.Toggle());
+        _icon.MouseUp += (_, e) =>
+        {
+            if (e.Button == System.Windows.Forms.MouseButtons.Left)
+                Application.Current.Dispatcher.BeginInvoke(() => _flyout.Toggle());
+        };
+        var menu = new System.Windows.Forms.ContextMenuStrip { ShowImageMargin = false, ShowCheckMargin = true };
+        FillMenu(menu);
+        // refilled on every open so the check marks match what the panel changed meanwhile
+        menu.Opening += (_, _) => { _flyout.HideAnimated(); FillMenu(menu); };
+        _icon.ContextMenuStrip = menu;
+    }
+
+    public void Attach(Input.GlobalInput input) => _flyout.Attach(input);
+
+    void FillMenu(System.Windows.Forms.ContextMenuStrip m)
+    {
+        var s = Settings.Current;
+        m.Items.Clear();
+        System.Windows.Forms.ToolStripMenuItem Item(string text, Action click, bool? check = null)
+        {
+            var it = new System.Windows.Forms.ToolStripMenuItem(text);
+            if (check.HasValue) it.Checked = check.Value;
+            it.Click += (_, _) => Application.Current.Dispatcher.BeginInvoke(click);
+            return it;
+        }
+        m.Items.Add(Item("Open panel", () => _flyout.Toggle()));
+        m.Items.Add(new System.Windows.Forms.ToolStripSeparator());
+        m.Items.Add(Item("Enabled", () => { s.Enabled = !s.Enabled; s.Save(); }, s.Enabled));
+        var themes = new System.Windows.Forms.ToolStripMenuItem("Theme");
+        foreach (var th in Theme.All)
+            themes.DropDownItems.Add(Item(th.Name, () => { s.Theme = th.Name; s.Save(); Theme.Apply(th.Name); }, th.Name == Theme.Current.Name));
+        m.Items.Add(themes);
+        m.Items.Add(Item("Notifications", () => { s.Notifications = !s.Notifications; s.Save(); }, s.Notifications));
+        m.Items.Add(Item("Start with Windows", () => { s.LaunchAtStartup = !s.LaunchAtStartup; s.Save(); AutoStart.Apply(s.LaunchAtStartup); }, s.LaunchAtStartup));
+        m.Items.Add(new System.Windows.Forms.ToolStripSeparator());
+        m.Items.Add(Item("Open log", () => Shell.Open(Paths.LogFile)));
+        m.Items.Add(Item("Quit Convertino", () => Application.Current.Shutdown()));
     }
 
     public void ShowFlyout() { if (!_flyout.IsVisible) _flyout.Toggle(); }

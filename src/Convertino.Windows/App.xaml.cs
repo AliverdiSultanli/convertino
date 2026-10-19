@@ -143,6 +143,7 @@ public partial class App : Application
         MenuPipe.Listen(files => Dispatcher.BeginInvoke(() => _overlay?.Menu(files)));
         if (menuFiles.Length > 0) Dispatcher.BeginInvoke(DispatcherPriority.ApplicationIdle, () => _overlay.Menu(menuFiles));
         _tray = new TrayIcon();
+        _tray.Attach(_input);
         AutoStart.Apply(Settings.Current.LaunchAtStartup);
 
         var wakeThread = new Thread(() =>
