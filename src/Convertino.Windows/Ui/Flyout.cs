@@ -9,6 +9,7 @@ using System.Windows.Media.Effects;
 using System.Windows.Shapes;
 using Microsoft.Win32;
 using Convertino.Native;
+using Convertino.Services;
 
 namespace Convertino.Ui;
 
@@ -207,6 +208,7 @@ public sealed class Flyout : Window
                 ToggleRow("Enabled", s.Enabled, v => { s.Enabled = v; s.Save(); Build(); }),
                 ToggleRow("Double-tap Shift in Explorer", s.DoubleShift, v => { s.DoubleShift = v; s.Save(); }),
                 ToggleRow("Notifications", s.Notifications, v => { s.Notifications = v; s.Save(); }),
+                ToggleRow("Tell me about new versions", s.CheckForUpdates == true, Updates.Answer),
                 ToggleRow("Start with Windows", s.LaunchAtStartup, v => { s.LaunchAtStartup = v; s.Save(); AutoStart.Apply(v); }),
             },
         }, new Thickness(0)));
@@ -222,11 +224,12 @@ public sealed class Flyout : Window
         }
 
         // footer
-        var footer = new DockPanel { Margin = new Thickness(0, 14, 0, 0) };
+        var footer = new DockPanel { Margin = new Thickness(0, 14, 0, 0), LastChildFill = false };
         var quit = FooterButton("", "Quit", () => Application.Current.Shutdown());
         DockPanel.SetDock(quit, Dock.Right);
         footer.Children.Add(quit);
         footer.Children.Add(FooterButton("", "Log", () => Shell.Open(Paths.LogFile)));
+        footer.Children.Add(FooterButton("\uE896", "Updates", UpdateCards.CheckNow));
 
         // header and footer stay put; only the middle scrolls when the screen is short
         var body = new DockPanel { Margin = new Thickness(18, 16, 18, 14) };
@@ -577,8 +580,10 @@ public sealed class TrayIcon : IDisposable
             themes.DropDownItems.Add(Item(th.Name, () => { s.Theme = th.Name; s.Save(); Theme.Apply(th.Name); }, th.Name == Theme.Current.Name));
         m.Items.Add(themes);
         m.Items.Add(Item("Notifications", () => { s.Notifications = !s.Notifications; s.Save(); }, s.Notifications));
+        m.Items.Add(Item("Tell me about new versions", () => Updates.Answer(s.CheckForUpdates != true), s.CheckForUpdates == true));
         m.Items.Add(Item("Start with Windows", () => { s.LaunchAtStartup = !s.LaunchAtStartup; s.Save(); AutoStart.Apply(s.LaunchAtStartup); }, s.LaunchAtStartup));
         m.Items.Add(new System.Windows.Forms.ToolStripSeparator());
+        m.Items.Add(Item("Check for updates…", UpdateCards.CheckNow));
         m.Items.Add(Item("Open log", () => Shell.Open(Paths.LogFile)));
         m.Items.Add(Item("Quit Convertino", () => Application.Current.Shutdown()));
     }
