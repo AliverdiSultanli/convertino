@@ -23,6 +23,7 @@ public sealed class App : Application
     MacInput? _input;
     OverlayController? _overlay;
     TrayIcon? _tray;
+    TrayPanel? _panel;
     Socket? _server;
 
     public override void Initialize()
@@ -56,6 +57,16 @@ public sealed class App : Application
         bool selftest = Environment.GetEnvironmentVariable("CONVERTINO_EDIT_SELFTEST") is { Length: > 0 };
         if (!selftest)
         {
+            MacInput input = _input;
+            _panel = new TrayPanel { Pointer = () => input.Pointer };
+            // above every app and on every Space, like the toasts
+            _panel.Opened += (_, _) =>
+            {
+                MacWindow.Float(_panel, MacWindow.StatusLevel);
+                if (OverlayController.Diag) Log.Info("panel " + MacWindow.Describe(_panel));
+            };
+            input.ButtonDown += p => _panel.ClickAt(p);
+            input.Escape += () => _panel.HideAnimated();
             BuildTray();
             platform.SetAutostart(Settings.Current.LaunchAtStartup);
             StartIpc();
@@ -81,6 +92,9 @@ public sealed class App : Application
             Dispatcher.UIThread.Post(() => _overlay.Pin(new ScreenPoint(int.Parse(px), int.Parse(py)),
                 pinFile is { Length: > 0 } ? [Path.GetFullPath(pinFile)] : null), DispatcherPriority.Background);
         }
+        // CONVERTINO_PANEL=1 opens the menu-bar panel at start, =demo with two weeks of made-up activity (screenshots)
+        if (Environment.GetEnvironmentVariable("CONVERTINO_PANEL") is { Length: > 0 } panel)
+            Dispatcher.UIThread.Post(() => _panel?.Open(panel == "demo" ? Stats.Demo() : null), DispatcherPriority.Background);
         if (StartupMenu.Length > 0) Dispatcher.UIThread.Post(() => _overlay.Menu(StartupMenu), DispatcherPriority.Background);
         else if (!Settings.Current.FirstRunDone)
         {
@@ -139,6 +153,10 @@ public sealed class App : Application
             return it;
         }
         menu.Items.Add(new NativeMenuItem("Convertino — drag a file, tap Shift") { IsEnabled = false });
+        // the status item always opens this menu (no click event on macOS), so the panel is one item away
+        var open = new NativeMenuItem("Open panel");
+        open.Click += (_, _) => _panel?.Open();
+        menu.Items.Add(open);
         menu.Items.Add(new NativeMenuItemSeparator());
         menu.Items.Add(Check("Enabled", s.Enabled, v => s.Enabled = v));
         var themes = new NativeMenu();

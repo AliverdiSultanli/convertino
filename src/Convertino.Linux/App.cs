@@ -22,6 +22,7 @@ public sealed class App : Application
     X11Input? _input;
     OverlayController? _overlay;
     TrayIcon? _tray;
+    TrayPanel? _panel;
     Socket? _server;
 
     public override void Initialize()
@@ -49,10 +50,13 @@ public sealed class App : Application
         _input = new X11Input(a => Dispatcher.UIThread.Post(a));
         bool x11 = _input.Start();
         if (!x11) { _input = null; Log.Info("no X display — drag+Shift disabled, menu mode only"); }
+        Action<Window>? unmanaged = null;
         if (_input != null)
         {
             var display = _input.Display;
-            Toasts.Prepare = w => { if (w.TryGetPlatformHandle()?.Handle is { } h && h != IntPtr.Zero) X11.OverrideRedirect(display, h); };
+            // toasts and the panel: no window-manager frame or focus, exact position, above everything
+            unmanaged = w => { if (w.TryGetPlatformHandle()?.Handle is { } h && h != IntPtr.Zero) X11.OverrideRedirect(display, h); };
+            Toasts.Prepare = unmanaged;
         }
         _overlay = new OverlayController(_input);
         LinuxPlatform.ClipboardHost = _overlay.Host;
@@ -60,6 +64,15 @@ public sealed class App : Application
         bool selftest = Environment.GetEnvironmentVariable("CONVERTINO_EDIT_SELFTEST") is { Length: > 0 };
         if (!selftest)
         {
+            var input = _input;
+            _panel = new TrayPanel { Pointer = input != null ? () => input.Pointer : null };
+            unmanaged?.Invoke(_panel);
+            if (input != null)
+            {
+                // it never has focus (override-redirect), so a click outside and Esc are seen globally
+                input.ButtonDown += p => _panel.ClickAt(p);
+                input.Escape += () => _panel.HideAnimated();
+            }
             BuildTray();
             platform.SetAutostart(Settings.Current.LaunchAtStartup);
             StartIpc();
@@ -79,6 +92,9 @@ public sealed class App : Application
         }
         if (Environment.GetEnvironmentVariable("CONVERTINO_PIN") is { } pin && pin.Split(',') is [var px, var py])
             Dispatcher.UIThread.Post(() => _overlay.Pin(new ScreenPoint(int.Parse(px), int.Parse(py))), DispatcherPriority.Background);
+        // CONVERTINO_PANEL=1 opens the tray panel at start, =demo with two weeks of made-up activity (screenshots)
+        if (Environment.GetEnvironmentVariable("CONVERTINO_PANEL") is { Length: > 0 } panel)
+            Dispatcher.UIThread.Post(() => _panel?.Open(panel == "demo" ? Stats.Demo() : null), DispatcherPriority.Background);
         if (StartupMenu.Length > 0) Dispatcher.UIThread.Post(() => _overlay.Menu(StartupMenu), DispatcherPriority.Background);
         else if (!Settings.Current.FirstRunDone)
         {
@@ -109,6 +125,9 @@ public sealed class App : Application
             return it;
         }
         menu.Items.Add(new NativeMenuItem("Convertino — drag a file, tap Shift") { IsEnabled = false });
+        var open = new NativeMenuItem("Open panel");
+        open.Click += (_, _) => _panel?.Open();
+        menu.Items.Add(open);
         menu.Items.Add(new NativeMenuItemSeparator());
         menu.Items.Add(Check("Enabled", s.Enabled, v => s.Enabled = v));
         var themes = new NativeMenu();
@@ -145,6 +164,8 @@ public sealed class App : Application
         AppIcon.Render(64).Save(ms, PngBitmapEncoderOptions.Default);
         ms.Position = 0;
         _tray = new TrayIcon { Icon = new WindowIcon(ms), ToolTipText = "Convertino — drag a file, tap Shift", Menu = menu, IsVisible = true };
+        // a left click opens the panel where the desktop reports it (KDE, XFCE, GNOME's AppIndicator extension …)
+        _tray.Clicked += (_, _) => _panel?.Toggle();
         TrayIcon.SetIcons(this, [_tray]);
     }
 

@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Smoke test for the macOS build (used by CI; works on any Mac):
 #   tools/mac-smoke.sh dist/Convertino.app          command line: conversions, CoreGraphics PDF, Vision OCR (CUTOUT=1: Cut out)
-#   tools/mac-smoke.sh dist/Convertino.app --gui    + editors, pinned flower, "convertino menu" over IPC, a synthetic drag + Shift
+#   tools/mac-smoke.sh dist/Convertino.app --gui    + editors, pinned flower, "convertino menu" over IPC, the menu-bar panel, a synthetic drag + Shift
 #                                                 + drop; in CI also install.sh and the Finder Quick Action
 # Screenshots and the log land in ./mac-smoke/.
 set -euo pipefail
@@ -110,6 +110,20 @@ limit 30 "$D" menu "$WORK/smoke.png"
 sleep 2
 shot 2-menu
 grep -q "menu: " "$LOG"
+pkill -f "Convertino.app/Contents/MacOS/convertino" || true
+sleep 1
+
+step "app: menu-bar panel (demo activity)"
+CONVERTINO_DEBUG=1 CONVERTINO_PANEL=demo "$D" >> "$OUT/app-stdout.txt" 2>&1 &
+sleep 6
+shot 2b-panel
+pwid=$(grep -o "panel window=[0-9]*" "$LOG" | tail -1 | grep -o "[0-9]*$" || true)
+if [ -n "$pwid" ]; then
+  screencapture -x -o -l "$pwid" "$OUT/2b-panel-window.png" 2>/dev/null || true
+  grep "panel window=" "$LOG" | tail -1
+else
+  echo "::warning::the panel didn't open (no 'panel window=' in the log)"
+fi
 pkill -f "Convertino.app/Contents/MacOS/convertino" || true
 sleep 1
 

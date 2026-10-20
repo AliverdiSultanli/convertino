@@ -43,7 +43,7 @@ Converting a file usually means opening an app, finding *Export…*, picking a f
 | 🗜 **Compress** | Smart image compression with the savings shown: `1.2 MB → 340 KB (−72%)` |
 | 📦 **Everything else** | Zip/unzip, merge/split/rotate PDFs, copy path, SHA-256, data URI |
 | 🎨 **Themes** | Catppuccin **Mocha** & **Latte**, **Sunset**, **Graphite** |
-| 📊 **Activity** | The tray panel charts your last two weeks: files handled, space saved, day streak, favourite actions (Windows) |
+| 📊 **Activity** | The tray / menu-bar panel charts your last two weeks: files handled, space saved, day streak, favourite actions |
 | ⌨️ **CLI** | `convertino convert IMG_0042.HEIC --to jpg` — the same engine without the UI |
 
 <div align="center">
@@ -77,7 +77,7 @@ Convertino installs per-user to `%LOCALAPPDATA%\Programs\Convertino` (no admin r
    tar xf convertino-linux-x64.tar.gz && cd convertino && ./install.sh
    ```
 
-The installer adds the `convertino` command, a desktop entry, autostart, and a **Convertino** entry in the right-click menu of Nautilus, Nemo, Dolphin and Caja. Optional helpers it will offer to install:
+The installer adds the `convertino` command, a desktop entry, autostart, and a **Convertino** entry in the right-click menu of Nautilus, Nemo, Dolphin and Caja. Click the tray icon (or **Open panel** in its menu) for the activity panel; theme and options are in the tray menu. Optional helpers it will offer to install:
 
 ```bash
 sudo apt install ffmpeg poppler-utils tesseract-ocr libreoffice   # Debian / Ubuntu
@@ -100,7 +100,7 @@ sudo pacman -S ffmpeg poppler tesseract tesseract-data-eng libreoffice-fresh   #
    cd ~/Downloads/convertino && ./install.sh
    ```
 
-The installer copies `Convertino.app` to `~/Applications`, adds the `convertino` command (`~/.local/bin`) and a **Quick Actions → Convertino** entry to Finder's right-click menu, and starts Convertino in the menu bar; it opens at login (toggle it in the menu-bar menu). `./install.sh --uninstall` removes it again. Optional helpers:
+The installer copies `Convertino.app` to `~/Applications`, adds the `convertino` command (`~/.local/bin`) and a **Quick Actions → Convertino** entry to Finder's right-click menu, and starts Convertino in the menu bar; it opens at login (toggle it in the menu-bar menu, which also has **Open panel** for your activity). `./install.sh --uninstall` removes it again. Optional helpers:
 
 ```bash
 brew install ffmpeg                  # video & audio petals
@@ -203,7 +203,7 @@ On Windows the executable is `Convertino.exe` (in `%LOCALAPPDATA%\Programs\Conve
 src/
   Convertino.Core/      shared engine: catalog of petals, converters, editors' pixel ops, CLI   (net10.0)
   Convertino.Windows/   WPF app: hooks, OLE drop target, flower, toasts, tray panel, editors     (net10.0-windows)
-  Convertino.Linux/     Avalonia app: X11 input, XDND drop target, flower, toasts, tray, editors (net10.0)
+  Convertino.Linux/     Avalonia app: X11 input, XDND drop target, flower, toasts, tray panel, editors (net10.0)
   Convertino.Mac/       macOS app on the same Avalonia UI: Quartz input, AppKit glass, Vision OCR  (net10.0)
 packaging/          installers, desktop entry, icons, file-manager integrations
 ```
