@@ -69,6 +69,15 @@ public partial class App : Application
             return;
         }
 
+        if (e.Args.Length >= 2 && e.Args[0] == "--panel")
+        {
+            Settings.Load();
+            Theme.Apply(e.Args.Length > 2 ? e.Args[2] : Settings.Current.Theme);
+            Flyout.Snapshot(e.Args[1], e.Args.Length > 3 && e.Args[3] == "demo" ? Stats.Demo() : Stats.Load());
+            Shutdown();
+            return;
+        }
+
         if (e.Args.Length >= 3 && e.Args[0] == "--run")
         {
             Settings.Load();

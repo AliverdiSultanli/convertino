@@ -55,6 +55,7 @@ public static class Jobs
         if (job.Silent && error == null && job.Outputs.Count == 0) { view?.Dismiss(); return; }
 
         if (job.Outputs.Count > 0) Settings.Current.AddRecent(job.Outputs[0], action.Verb);
+        if (error == null) _ = Task.Run(() => Stats.Record(job));
         if (!notify && error == null) { view?.Dismiss(); return; }
 
         EnsureView();

@@ -43,6 +43,7 @@ Converting a file usually means opening an app, finding *Export…*, picking a f
 | 🗜 **Compress** | Smart image compression with the savings shown: `1.2 MB → 340 KB (−72%)` |
 | 📦 **Everything else** | Zip/unzip, merge/split/rotate PDFs, copy path, SHA-256, data URI |
 | 🎨 **Themes** | Catppuccin **Mocha** & **Latte**, **Sunset**, **Graphite** |
+| 📊 **Activity** | The tray panel charts your last two weeks: files handled, space saved, day streak, favourite actions (Windows) |
 | ⌨️ **CLI** | `convertino convert IMG_0042.HEIC --to jpg` — the same engine without the UI |
 
 <div align="center">
@@ -62,6 +63,10 @@ Converting a file usually means opening an app, finding *Export…*, picking a f
    ```
 
 Convertino installs per-user to `%LOCALAPPDATA%\Programs\Convertino` (no admin rights), adds a Start-menu entry and **Send to → Convertino**, starts in the tray and launches with Windows (toggle it in the tray panel). Click the tray icon for the panel (theme, options, recent files; closes on Esc or a click outside); right-click it for a quick menu with **Quit Convertino**. For video and audio petals install ffmpeg: `winget install Gyan.FFmpeg`.
+
+<div align="center">
+<img src="docs/panel.png" width="320" alt="The tray panel: two weeks of activity, themes and options" />
+</div>
 
 ### Linux
 

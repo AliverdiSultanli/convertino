@@ -20,6 +20,8 @@ public sealed class Flyout : Window
     // a brush, not an Image element: it survives rebuilds and never feeds its bitmap size into the layout
     readonly ImageBrush _backdrop = new() { Stretch = Stretch.Fill };
     DateTime _hiddenAt;
+    Stats? _stats;
+    bool _animate; // only the build that opens the panel plays the activity intro
 
     public Flyout()
     {
@@ -44,7 +46,10 @@ public sealed class Flyout : Window
     {
         if (IsVisible) { HideAnimated(); return; }
         if ((DateTime.Now - _hiddenAt).TotalMilliseconds < 250) return; // click on tray that just closed us
+        _stats = Stats.Load();
+        _animate = true;
         Build();
+        _animate = false;
         var cursor = Win32.Cursor;
         var (work, _, scale) = Win32.MonitorAt(cursor);
         new WindowInteropHelper(this).EnsureHandle();
@@ -94,6 +99,43 @@ public sealed class Flyout : Window
         _hiding = false;
     }
 
+    /// <summary>Dev: render the panel to a PNG over a soft wallpaper (Convertino.exe --panel out.png [theme] [demo]).</summary>
+    public static void Snapshot(string outPath, Stats stats)
+    {
+        const double scale = 2;
+        var f = new Flyout { _stats = stats };
+        var wall = new DrawingVisual();
+        double w = W + Pad * 2, h = 1000;
+        using (var dc = wall.RenderOpen())
+            dc.DrawDrawing(Convertino.Editors.BackgroundEditor.Backdrops[0].Paint(new Rect(0, 0, w, h), null));
+        var wallBmp = new System.Windows.Media.Imaging.RenderTargetBitmap((int)w, (int)h, 96, 96, PixelFormats.Pbgra32);
+        wallBmp.Render(wall);
+        var blur = new Image { Source = wallBmp, Effect = new BlurEffect { Radius = 28 } };
+        blur.Measure(new Size(w, h)); blur.Arrange(new Rect(0, 0, w, h));
+        var blurred = new System.Windows.Media.Imaging.RenderTargetBitmap((int)w, (int)h, 96, 96, PixelFormats.Pbgra32);
+        blurred.Render(blur);
+
+        f.Build();
+        var root = (FrameworkElement)f.Content;
+        f.Content = null;
+        root.Measure(new Size(w, double.PositiveInfinity));
+        h = root.DesiredSize.Height;
+        root.Arrange(new Rect(0, 0, w, h));
+        root.UpdateLayout();
+        f._backdrop.ImageSource = new System.Windows.Media.Imaging.CroppedBitmap(blurred, new Int32Rect((int)Pad, (int)Pad, (int)(w - Pad * 2), (int)Math.Min(1000 - Pad, h - Pad * 2)));
+        root.UpdateLayout();
+
+        var rtb = new System.Windows.Media.Imaging.RenderTargetBitmap((int)(w * scale), (int)(h * scale), 96 * scale, 96 * scale, PixelFormats.Pbgra32);
+        var bg = new DrawingVisual();
+        using (var dc = bg.RenderOpen()) dc.DrawImage(wallBmp, new Rect(0, 0, w, 1000));
+        rtb.Render(bg);
+        rtb.Render(root);
+        var enc = new System.Windows.Media.Imaging.PngBitmapEncoder();
+        enc.Frames.Add(System.Windows.Media.Imaging.BitmapFrame.Create(rtb));
+        using var fs = File.Create(outPath);
+        enc.Save(fs);
+    }
+
     /// <summary>Close on any click outside the panel or Esc — works even if Windows never gave us focus.</summary>
     public void Attach(Input.GlobalInput input)
     {
@@ -133,8 +175,14 @@ public sealed class Flyout : Window
         var hl = new StackPanel { Orientation = Orientation.Horizontal, Children = { logo, title } };
         header.Children.Add(hl);
 
-        // how-to card
-        stack.Children.Add(Card(new StackPanel
+        // what you've been doing; until there's anything, how to start
+        var stats = _stats ??= Stats.Load();
+        if (!stats.IsEmpty)
+        {
+            stack.Children.Add(Label("Activity · 2 weeks"));
+            stack.Children.Add(Activity(stats));
+        }
+        else stack.Children.Add(Card(new StackPanel
         {
             Children =
             {
@@ -239,6 +287,124 @@ public sealed class Flyout : Window
         Margin = margin,
         Child = child,
     };
+
+    // ---------- activity ----------
+
+    const double BarsH = 58;
+
+    UIElement Activity(Stats st)
+    {
+        var days = st.Last(14);
+        int files = days.Sum(d => d.Day.Files);
+        long saved = days.Sum(d => d.Day.Saved);
+        int streak = st.Streak();
+        var accent = new LinearGradientBrush(T.AccentA, T.AccentB, 0);
+
+        // three big numbers that count up as the panel opens
+        var nums = new System.Windows.Controls.Primitives.UniformGrid { Columns = 3 };
+        nums.Children.Add(Stat(files, v => ((long)v).ToString("N0"), files == 1 ? "file" : "files", accent));
+        nums.Children.Add(Stat(saved, v => Paths.HumanSize((long)v), "saved", accent));
+        nums.Children.Add(Stat(streak, v => ((long)v).ToString(), "day streak", accent));
+
+        // one bar per day; hovering one swaps the date row for that day's numbers
+        int max = Math.Max(1, days.Max(d => d.Day.Files));
+        var bars = new Grid { Height = BarsH, Margin = new Thickness(0, 14, 0, 0) };
+        var first = new TextBlock { Text = days[0].Date.ToString("d MMM"), FontFamily = TextF, FontSize = 10.5, Foreground = B(T.SubText), HorizontalAlignment = HorizontalAlignment.Left };
+        var today = new TextBlock { Text = "Today", FontFamily = TextF, FontSize = 10.5, Foreground = B(T.SubText), HorizontalAlignment = HorizontalAlignment.Right };
+        var caption = new TextBlock { FontFamily = TextF, FontSize = 10.5, FontWeight = FontWeights.SemiBold, Foreground = B(T.Text), HorizontalAlignment = HorizontalAlignment.Center, Visibility = Visibility.Collapsed };
+        var dates = new Grid { Margin = new Thickness(0, 5, 0, 0), Children = { first, today, caption } };
+
+        var vertical = new LinearGradientBrush(T.AccentA, T.AccentB, 90);
+        for (int i = 0; i < days.Count; i++)
+        {
+            var (date, day) = days[i];
+            bool isToday = i == days.Count - 1;
+            bars.ColumnDefinitions.Add(new ColumnDefinition());
+            // headroom on top for the ease's overshoot
+            double h = day.Files == 0 ? 4 : 8 + (BarsH - 12) * day.Files / max;
+            var bar = new Border
+            {
+                Width = 11, Height = _animate ? 0 : h, CornerRadius = new CornerRadius(day.Files == 0 ? 2 : 4),
+                VerticalAlignment = VerticalAlignment.Bottom,
+                Background = day.Files == 0 ? B(A(T.SubText, .25)) : vertical,
+                Opacity = day.Files == 0 || isToday ? 1 : T.IsDark ? .68 : .55,
+            };
+            if (_animate)
+                bar.BeginAnimation(HeightProperty, new DoubleAnimation(0, h, TimeSpan.FromMilliseconds(520))
+                {
+                    BeginTime = TimeSpan.FromMilliseconds(140 + 28 * i),
+                    EasingFunction = new BackEase { Amplitude = .35, EasingMode = EasingMode.EaseOut },
+                });
+            var col = new Border { Background = Brushes.Transparent, Child = bar, Cursor = Cursors.Hand };
+            Grid.SetColumn(col, i);
+            double rest = bar.Opacity;
+            col.MouseEnter += (_, _) =>
+            {
+                bar.Opacity = 1;
+                caption.Text = $"{date:ddd d MMM} · {day.Files} {(day.Files == 1 ? "file" : "files")}" + (day.Saved > 0 ? $" · {Paths.HumanSize(day.Saved)} saved" : "");
+                caption.Visibility = Visibility.Visible;
+                first.Visibility = today.Visibility = Visibility.Hidden;
+            };
+            col.MouseLeave += (_, _) =>
+            {
+                bar.Opacity = rest;
+                caption.Visibility = Visibility.Collapsed;
+                first.Visibility = today.Visibility = Visibility.Visible;
+            };
+            bars.Children.Add(col);
+        }
+
+        var body = new StackPanel { Children = { nums, bars, dates } };
+
+        // what you reach for most
+        var top = st.Top(14, 3);
+        if (top.Count > 0)
+        {
+            var chips = new WrapPanel { Margin = new Thickness(0, 12, 0, 0) };
+            foreach (var (name, count) in top)
+            {
+                var tb = new TextBlock { FontFamily = TextF, FontSize = 11.5 };
+                tb.Inlines.Add(new System.Windows.Documents.Run(name) { FontWeight = FontWeights.SemiBold, Foreground = B(T.Text) });
+                tb.Inlines.Add(new System.Windows.Documents.Run($"  ×{count}") { Foreground = B(T.SubText) });
+                chips.Children.Add(new Border
+                {
+                    Child = tb, CornerRadius = new CornerRadius(10), Padding = new Thickness(9, 3, 9, 4), Margin = new Thickness(0, 0, 6, 4),
+                    Background = B(A(T.AccentA, T.IsDark ? .16 : .13)),
+                    BorderBrush = B(A(T.AccentA, T.IsDark ? .28 : .22)), BorderThickness = new Thickness(1),
+                });
+            }
+            body.Children.Add(chips);
+        }
+
+        var card = Card(body, new Thickness(0));
+        card.Padding = new Thickness(14, 12, 14, 10);
+        return card;
+    }
+
+    UIElement Stat(double value, Func<double, string> fmt, string caption, Brush accent)
+    {
+        var big = new TextBlock { FontFamily = Display, FontWeight = FontWeights.SemiBold, FontSize = 21, Foreground = accent, Text = fmt(_animate ? 0 : value) };
+        if (_animate && value > 0) CountUp(big, value, fmt);
+        var sp = new StackPanel();
+        sp.Children.Add(big);
+        sp.Children.Add(new TextBlock { Text = caption, FontFamily = TextF, FontSize = 11, Foreground = B(T.SubText), Margin = new Thickness(1, -1, 0, 0) });
+        return sp;
+    }
+
+    static void CountUp(TextBlock tb, double target, Func<double, string> fmt)
+    {
+        var start = DateTime.Now.AddMilliseconds(120);
+        const double ms = 750;
+        EventHandler? tick = null;
+        tick = (_, _) =>
+        {
+            double t = Math.Clamp((DateTime.Now - start).TotalMilliseconds / ms, 0, 1);
+            double eased = 1 - Math.Pow(1 - t, 3);
+            tb.Text = fmt(t >= 1 ? target : target * eased);
+            if (t >= 1) CompositionTarget.Rendering -= tick;
+        };
+        CompositionTarget.Rendering += tick;
+    }
 
     UIElement HowRow(string glyph, string title, string sub)
     {

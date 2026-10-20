@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.1.0 — 2026-10-20
+
+- Activity card in the Windows tray panel: files handled, space saved and your day streak for the last two weeks (the numbers count up as the panel opens), a bar per day that shows that day's numbers on hover, and your most used actions. It takes the place of the how-to card once you've converted something.
+- Every finished job is tallied per day in `stats.json` next to the settings (all platforms; nothing leaves your machine).
+- `Convertino.exe --panel out.png [theme] [demo]` renders the panel to a PNG (used for the README).
+
 ## 1.0.1 — 2026-10-20
 
 - Windows tray panel: it opened only once — changing the theme or a toggle crashed the rebuild, and every later click on the tray icon did nothing. Fixed.
